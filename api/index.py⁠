@@ -1,0 +1,63 @@
+import json
+import re
+import requests
+import os
+from http.server import BaseHTTPRequestHandler
+
+# Vercel'ga kiritilgan tokenni olamiz
+TOKEN = os.environ.get("BOT_TOKEN")
+TELEGRAM_API = f"https://api.telegram.org/bot{TOKEN}"
+
+def get_olx_images(url):
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    try:
+        r = requests.get(url, headers=headers, timeout=10)
+        if r.status_code != 200: 
+            return []
+        
+        # Suv belgisiz havolalarni qirqib olish
+        pattern = r'https://[a-zA-Z0-9\.\-]+/v1/files/[a-zA-Z0-9\-]+/image[^\s"\'<>]*'
+        urls = re.findall(pattern, r.text)
+        return list(set([u.split(';')[0] for u in urls]))
+    except:
+        return []
+
+def send_message(chat_id, text):
+    requests.post(f"{TELEGRAM_API}/sendMessage", json={"chat_id": chat_id, "text": text})
+
+def send_media_group(chat_id, images):
+    # Telegram bitta xabarda eng ko'pi 10 ta rasm yuborishga ruxsat beradi
+    for i in range(0, len(images), 10):
+        media = [{"type": "photo", "media": img} for img in images[i:i+10]]
+        requests.post(f"{TELEGRAM_API}/sendMediaGroup", json={"chat_id": chat_id, "media": media})
+
+class handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            update = json.loads(post_data)
+
+            if "message" in update and "text" in update["message"]:
+                chat_id = update["message"]["chat"]["id"]
+                text = update["message"]["text"].strip()
+
+                if text == "/start":
+                    send_message(chat_id, "Assalomu alaykum! Menga OLX e'lon havolasini yuboring, rasmlarni suv belgisiz yuklab beraman.")
+                elif "olx.uz" in text:
+                    send_message(chat_id, "Rasmlar qidirilmoqda, biroz kuting...")
+                    images = get_olx_images(text)
+                    if images:
+                        send_media_group(chat_id, images)
+                    else:
+                        send_message(chat_id, "Rasmlarni yuklab bo'lmadi yoki e'lon topilmadi.")
+                else:
+                    send_message(chat_id, "Iltimos, faqat to'g'ri olx.uz havolasini yuboring.")
+
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"OK")
+        except Exception as e:
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"Error")
