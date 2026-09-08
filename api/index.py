@@ -25,29 +25,37 @@ def send_message(chat_id, text):
 
 def get_olx_images(url):
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept-Language": "uz-UZ,uz;q=0.9,en;q=0.8"
     }
 
     try:
         response = requests.get(
             url,
             headers=headers,
-            timeout=15
+            timeout=20
         )
 
         if response.status_code != 200:
             return []
 
-        pattern = r'https://[a-zA-Z0-9.\-]+/v1/files/[a-zA-Z0-9\-]+/image[^\s"\'<>]*'
+        html = response.text
 
-        images = re.findall(pattern, response.text)
+        pattern = r'https://[^"\']*olxcdn\.com[^"\']+'
 
-        images = [
-            image.split(";")[0]
-            for image in images
-        ]
+        images = re.findall(pattern, html)
 
-        return list(dict.fromkeys(images))
+        result = []
+
+        for image in images:
+            image = image.replace("\\/", "/")
+            image = image.split('"')[0]
+            image = image.split("'")[0]
+
+            if "olxcdn.com" in image:
+                result.append(image)
+
+        return list(dict.fromkeys(result))
 
     except Exception:
         return []
