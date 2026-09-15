@@ -44,7 +44,6 @@ def clean_url(url):
     url = url.replace("\\/", "/")
     url = url.replace("\\u002F", "/")
 
-    # Qo'shtirnoq va ortiqcha belgilar
     url = url.split('"')[0]
     url = url.split("'")[0]
     url = url.strip()
@@ -64,7 +63,10 @@ def get_page(url):
             "Chrome/140.0 Safari/537.36"
         ),
         "Accept-Language": "uz-UZ,uz;q=0.9,ru;q=0.8,en;q=0.7",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        "Accept": (
+            "text/html,application/xhtml+xml,application/xml;"
+            "q=0.9,*/*;q=0.8"
+        )
     }
 
     try:
@@ -105,7 +107,9 @@ def get_olx_images_from_html(page_html):
     for script in scripts:
 
         try:
-            data = json.loads(script.string or script.get_text())
+            data = json.loads(
+                script.string or script.get_text()
+            )
 
         except Exception:
             continue
@@ -116,6 +120,7 @@ def get_olx_images_from_html(page_html):
             objects = data
 
         elif isinstance(data, dict):
+
             objects = [data]
 
             graph = data.get("@graph")
@@ -131,6 +136,7 @@ def get_olx_images_from_html(page_html):
             image = obj.get("image")
 
             if isinstance(image, str):
+
                 candidates.append(image)
 
             elif isinstance(image, list):
@@ -141,7 +147,9 @@ def get_olx_images_from_html(page_html):
                         candidates.append(item)
 
                     elif isinstance(item, dict):
+
                         url = item.get("url")
+
                         if url:
                             candidates.append(url)
 
@@ -160,7 +168,7 @@ def get_olx_images_from_html(page_html):
             candidates.append(content)
 
     # -----------------------------------------------------
-    # 3. OLX CDN URL'lari — fallback
+    # 3. OLX CDN URL'LARI — FALLBACK
     # -----------------------------------------------------
 
     if len(candidates) < 2:
@@ -172,7 +180,7 @@ def get_olx_images_from_html(page_html):
         )
 
     # -----------------------------------------------------
-    # URLlarni tozalash
+    # URL'LARNI TOZALASH
     # -----------------------------------------------------
 
     cleaned = []
@@ -202,12 +210,6 @@ def get_olx_images_from_html(page_html):
 
         path = parsed.path
 
-        # OLX CDN:
-        # /v1/files/FILE_ID/image
-        #
-        # FILE_ID orqali bir xil rasmning turli
-        # URL variantlarini bitta deb olamiz.
-
         match = re.search(
             r"/v1/files/([^/]+)/",
             path
@@ -221,7 +223,6 @@ def get_olx_images_from_html(page_html):
 
         else:
 
-            # fallback
             key = path
 
         if key in seen_keys:
@@ -259,7 +260,9 @@ def get_listing_data(page_html):
     for script in scripts:
 
         try:
-            data = json.loads(script.string or script.get_text())
+            data = json.loads(
+                script.string or script.get_text()
+            )
 
         except Exception:
             continue
@@ -284,9 +287,14 @@ def get_listing_data(page_html):
                 continue
 
             if not title:
-                title = obj.get("name", "") or ""
+
+                title = obj.get(
+                    "name",
+                    ""
+                ) or ""
 
             if not description:
+
                 description = obj.get(
                     "description",
                     ""
@@ -298,13 +306,23 @@ def get_listing_data(page_html):
 
     if not title:
 
-        tag = soup.find("meta", attrs={"property": "og:title"})
+        tag = soup.find(
+            "meta",
+            attrs={"property": "og:title"}
+        )
 
         if tag:
-            title = tag.get("content", "")
+            title = tag.get(
+                "content",
+                ""
+            )
 
     if not title and soup.title:
-        title = soup.title.get_text(" ", strip=True)
+
+        title = soup.title.get_text(
+            " ",
+            strip=True
+        )
 
     # -----------------------------------------------------
     # DESCRIPTION FALLBACK
@@ -318,10 +336,14 @@ def get_listing_data(page_html):
         )
 
         if meta:
-            description = meta.get("content", "")
+
+            description = meta.get(
+                "content",
+                ""
+            )
 
     # -----------------------------------------------------
-    # SAHIFADAGI MATNNI
+    # SAHIFADAGI MATN
     # -----------------------------------------------------
 
     page_text = soup.get_text(
@@ -329,7 +351,6 @@ def get_listing_data(page_html):
         strip=True
     )
 
-    # Keraksiz takroriy bo'sh qatorlarni tozalash
     lines = []
 
     for line in page_text.splitlines():
@@ -343,10 +364,11 @@ def get_listing_data(page_html):
             lines.append(line)
 
     # -----------------------------------------------------
-    # E'LONNING MUHIM XUSUSIYATLARINI TOPISH
+    # MUHIM XUSUSIYATLAR
     # -----------------------------------------------------
 
     possible_labels = [
+
         "Количество комнат",
         "Общая площадь",
         "Этаж",
@@ -394,10 +416,13 @@ def get_listing_data(page_html):
 
 def get_phone_numbers(page_html):
 
-    # +998XXXXXXXXX formatlari
     patterns = [
-        r"\+998[\s\-()]*\d{2}[\s\-()]*\d{3}[\s\-]*\d{2}[\s\-]*\d{2}",
-        r"998[\s\-()]*\d{2}[\s\-()]*\d{3}[\s\-]*\d{2}[\s\-]*\d{2}"
+
+        r"\+998[\s\-()]*\d{2}[\s\-()]*\d{3}"
+        r"[\s\-]*\d{2}[\s\-]*\d{2}",
+
+        r"998[\s\-()]*\d{2}[\s\-()]*\d{3}"
+        r"[\s\-]*\d{2}[\s\-]*\d{2}"
     ]
 
     found = []
@@ -417,7 +442,10 @@ def get_phone_numbers(page_html):
                 phone
             )
 
-            if digits.startswith("998") and len(digits) == 12:
+            if (
+                digits.startswith("998")
+                and len(digits) == 12
+            ):
 
                 normalized = "+" + digits
 
@@ -438,21 +466,41 @@ def get_phone_numbers(page_html):
 # TELEGRAM MEDIA GROUP
 # =========================================================
 
-def send_media_group(chat_id, images):
+def send_media_group(
+    chat_id,
+    images,
+    caption=None
+):
 
     sent = 0
 
-    for i in range(0, len(images), 10):
+    for i in range(
+        0,
+        len(images),
+        10
+    ):
 
         group = images[i:i + 10]
 
-        media = [
-            {
+        media = []
+
+        for index, image in enumerate(group):
+
+            item = {
                 "type": "photo",
                 "media": image
             }
-            for image in group
-        ]
+
+            # Caption faqat birinchi rasmga
+            if (
+                i == 0
+                and index == 0
+                and caption
+            ):
+
+                item["caption"] = caption
+
+            media.append(item)
 
         try:
 
@@ -466,6 +514,7 @@ def send_media_group(chat_id, images):
             )
 
             if response.ok:
+
                 sent += len(group)
 
         except Exception:
@@ -478,24 +527,41 @@ def send_media_group(chat_id, images):
 # NATIJANI TAYYORLASH
 # =========================================================
 
-def make_listing_text(data, phones):
+def make_listing_text(data):
 
-    title = data.get("title", "")
-    description = data.get("description", "")
-    attributes = data.get("attributes", [])
+    title = data.get(
+        "title",
+        ""
+    )
+
+    description = data.get(
+        "description",
+        ""
+    )
+
+    attributes = data.get(
+        "attributes",
+        []
+    )
 
     text = ""
 
+    # -----------------------------------------------------
+    # TITLE
+    # -----------------------------------------------------
+
     if title:
+
         text += f"🏠 {title}\n\n"
 
-    # Xususiyatlar
+    # -----------------------------------------------------
+    # XUSUSIYATLAR
+    # -----------------------------------------------------
+
     if attributes:
 
         for item in attributes:
 
-            # Sahifa title'i yoki keraksiz uzun qatorlarni
-            # o'tkazib yuborish
             if len(item) > 300:
                 continue
 
@@ -503,51 +569,73 @@ def make_listing_text(data, phones):
 
         text += "\n"
 
-    # Description
+    # -----------------------------------------------------
+    # DESCRIPTION
+    # -----------------------------------------------------
+
     if description:
 
         text += "📝 Описание:\n"
+
         text += description
+
         text += "\n\n"
 
-    # Bizning raqam
+    # -----------------------------------------------------
+    # BIZNING RAQAM
+    # -----------------------------------------------------
+
     text += "📞 Aloqa uchun:\n"
+
     text += MY_PHONE
-    text += "\n\n"
-
-    # E'lon egasining raqami
-    if phones:
-
-        text += "📱 Telefon, ko'rsatilgan e'londa:\n"
-
-        for phone in phones:
-            text += phone + "\n"
-
-    else:
-
-        text += (
-            "📱 Telefon, ko'rsatilgan e'londa:\n"
-            "OLX sahifasidan raqamni avtomatik olishning "
-            "imkoni bo'lmadi."
-        )
 
     return text
+
+
+# =========================================================
+# E'LON EGASINING RAQAMI
+# =========================================================
+
+def make_owner_phone_text(phones):
+
+    if not phones:
+
+        return (
+            "📱 E'lon egasining raqami topilmadi."
+        )
+
+    text = (
+        "📱 E'lon egasining raqami:\n\n"
+    )
+
+    for phone in phones:
+
+        text += phone + "\n"
+
+    return text.strip()
 
 
 # =========================================================
 # ROUTES
 # =========================================================
 
-@app.route("/", methods=["GET"])
+@app.route(
+    "/",
+    methods=["GET"]
+)
 def home():
 
     return "Bot ishlayapti!"
 
 
-@app.route("/api/index", methods=["GET", "POST"])
+@app.route(
+    "/api/index",
+    methods=["GET", "POST"]
+)
 def telegram_webhook():
 
     if request.method == "GET":
+
         return "OK"
 
     try:
@@ -557,134 +645,197 @@ def telegram_webhook():
         )
 
         if not update:
+
             return "OK", 200
 
-        message = update.get("message")
+        message = update.get(
+            "message"
+        )
 
         if not message:
+
             return "OK", 200
 
-        chat = message.get("chat")
+        chat = message.get(
+            "chat"
+        )
 
         if not chat:
+
             return "OK", 200
 
-        chat_id = chat.get("id")
+        chat_id = chat.get(
+            "id"
+        )
 
         text = message.get(
             "text",
             ""
         ).strip()
 
-        # -------------------------------------------------
+        # =================================================
         # START
-        # -------------------------------------------------
+        # =================================================
 
         if text == "/start":
 
             send_message(
                 chat_id,
+
                 "Assalomu alaykum! 👋\n\n"
-                "Menga OLX.uz e'lon havolasini yuboring.\n\n"
+
+                "Menga OLX.uz e'lon havolasini "
+                "yuboring.\n\n"
+
                 "Men sizga:\n"
+
                 "🖼 E'lon rasmlarini\n"
+
                 "📝 E'lon ma'lumotlarini\n"
+
                 "📱 E'lon egasining telefon raqamini\n"
+
                 "📞 Aloqa raqamini\n"
+
                 "ajratib beraman."
             )
 
-        # -------------------------------------------------
+        # =================================================
         # OLX
-        # -------------------------------------------------
+        # =================================================
 
         elif "olx.uz" in text.lower():
 
             send_message(
                 chat_id,
+
                 "🔎 E'lon ma'lumotlari va rasmlar "
                 "qidirilmoqda...\n\n"
+
                 "Biroz kuting."
             )
 
-            page_html = get_page(text)
+            page_html = get_page(
+                text
+            )
 
             if not page_html:
 
                 send_message(
                     chat_id,
+
                     "❌ OLX e'lonini ochib bo'lmadi."
                 )
 
                 return "OK", 200
 
-            # Rasmlar
+            # -------------------------------------------------
+            # RASMLAR
+            # -------------------------------------------------
+
             images = get_olx_images_from_html(
                 page_html
             )
 
-            # E'lon ma'lumotlari
+            # -------------------------------------------------
+            # E'LON MA'LUMOTLARI
+            # -------------------------------------------------
+
             data = get_listing_data(
                 page_html
             )
 
-            # Telefonlar
+            # -------------------------------------------------
+            # TELEFONLAR
+            # -------------------------------------------------
+
             phones = get_phone_numbers(
                 page_html
             )
 
             # -------------------------------------------------
-            # AVVAL E'LON MA'LUMOTLARI
+            # MATN
             # -------------------------------------------------
 
             listing_text = make_listing_text(
-                data,
-                phones
-            )
-
-            send_message(
-                chat_id,
-                listing_text
+                data
             )
 
             # -------------------------------------------------
-            # KEYIN RASMLAR
+            # RASMLAR + CAPTION
             # -------------------------------------------------
 
             if images:
 
                 sent_count = send_media_group(
                     chat_id,
-                    images
+                    images,
+                    listing_text
+                )
+
+                # -------------------------------------------------
+                # E'LON EGASINING RAQAMI ALOHIDA
+                # -------------------------------------------------
+
+                phone_text = make_owner_phone_text(
+                    phones
                 )
 
                 send_message(
                     chat_id,
+                    phone_text
+                )
+
+                # -------------------------------------------------
+                # NECHTA RASM YUBORILGANINI
+                # -------------------------------------------------
+
+                send_message(
+                    chat_id,
+
                     f"🖼 {sent_count} ta rasm yuborildi."
                 )
 
+            # -------------------------------------------------
+            # RASM TOPILMASA
+            # -------------------------------------------------
+
             else:
+
+                send_message(
+                    chat_id,
+                    listing_text
+                )
+
+                phone_text = make_owner_phone_text(
+                    phones
+                )
+
+                send_message(
+                    chat_id,
+                    phone_text
+                )
 
                 send_message(
                     chat_id,
                     "⚠️ E'londa rasmlar topilmadi."
                 )
 
-        # -------------------------------------------------
+        # =================================================
         # BOSHQA XABAR
-        # -------------------------------------------------
+        # =================================================
 
         else:
 
             send_message(
                 chat_id,
-                "Iltimos, OLX.uz e'lon havolasini yuboring."
+
+                "Iltimos, OLX.uz e'lon havolasini "
+                "yuboring."
             )
 
         return "OK", 200
 
-    except Exception as e:
+    except Exception:
 
-        # Telegramga xatoni chiqarib yubormaymiz.
-        # Webhook doim 200 qaytaradi.
         return "OK", 200
